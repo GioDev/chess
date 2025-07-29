@@ -235,6 +235,62 @@ def display_message(message):
     pygame.display.flip()
     pygame.time.wait(2000) # Display message for 2 seconds
 
+def display_promotion_choice(current_player):
+    promotion_options = ['Q', 'R', 'B', 'N']
+    if current_player == 'black':
+        promotion_options = [p.lower() for p in promotion_options]
+
+    # Draw a semi-transparent overlay
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180)) # Black with 180 alpha (out of 255)
+    screen.blit(overlay, (0, 0))
+
+    # Draw promotion options
+    box_width = SQUARE_SIZE * len(promotion_options)
+    box_height = SQUARE_SIZE
+    box_x = (WIDTH - box_width) // 2
+    box_y = (HEIGHT - box_height) // 2
+
+    pygame.draw.rect(screen, (200, 200, 200), (box_x - 5, box_y - 5, box_width + 10, box_height + 10), 0) # Background
+    pygame.draw.rect(screen, (0, 0, 0), (box_x - 5, box_y - 5, box_width + 10, box_height + 10), 3) # Border
+
+    option_rects = []
+    for i, piece_char in enumerate(promotion_options):
+        piece_image_key = 'w' + piece_char.upper() if current_player == 'white' else 'b' + piece_char.lower()
+        piece_image = PIECE_IMAGES[piece_image_key]
+        
+        x = box_x + i * SQUARE_SIZE
+        y = box_y
+        screen.blit(piece_image, (x, y))
+        option_rects.append(pygame.Rect(x, y, SQUARE_SIZE, SQUARE_SIZE))
+
+    pygame.display.flip()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouseX, mouseY = event.pos
+                for i, rect in enumerate(option_rects):
+                    if rect.collidepoint(mouseX, mouseY):
+                        return promotion_options[i]
+
+def handle_pawn_promotion(board, end_pos, current_player):
+    end_row, end_col = end_pos
+    piece = board[end_row][end_col]
+
+    if piece.lower() == 'p':
+        # White pawn promotion
+        if current_player == 'white' and end_row == 0:
+            chosen_piece = display_promotion_choice(current_player)
+            board[end_row][end_col] = chosen_piece.upper()
+            return True
+        # Black pawn promotion
+        elif current_player == 'black' and end_row == BOARD_SIZE - 1:
+            chosen_piece = display_promotion_choice(current_player)
+            board[end_row][end_col] = chosen_piece.lower()
+            return True
+    return False
+
 def main():
     """Main function to run the game.""" 
     load_images()
@@ -276,6 +332,8 @@ def main():
                             board[clicked_row][clicked_col] = original_target_piece
                             display_message("Invalid move: King is in check!")
                         else:
+                            if handle_pawn_promotion(board, (clicked_row, clicked_col), current_player):
+                                display_message("Pawn Promoted!")
                             selected_piece = None
                             selected_pos = None
                             current_player = 'black' # Switch turns
