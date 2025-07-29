@@ -1,5 +1,6 @@
 import pygame
 import sys
+import random
 
 # --- Constants ---
 BOARD_SIZE = 8
@@ -20,24 +21,24 @@ pygame.display.set_caption("Chess")
 PIECE_IMAGES = {}
 
 def load_images():
-    pieces = ['bB', 'bK', 'bN', 'bP', 'bQ', 'bR', 'wB', 'wK', 'wN', 'wP', 'wQ', 'wR']
+    pieces = ['bb', 'bk', 'bn', 'bp', 'bq', 'br', 'wB', 'wK', 'wN', 'wP', 'wQ', 'wR']
     for piece in pieces:
-        PIECE_IMAGES[piece] = pygame.transform.scale(pygame.image.load(f"chess/images/{piece}.png"), (SQUARE_SIZE, SQUARE_SIZE))
+        PIECE_IMAGES[piece] = pygame.transform.scale(pygame.image.load(f"images/{piece}.png"), (SQUARE_SIZE, SQUARE_SIZE))
 
 def create_board():
     """Creates the initial chess board setup."""
     return [
-        ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
-        ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
         ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-        ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r']
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+        ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
     ]
 
-def draw_board(board):
+def draw_board(board, selected_pos=None):
     """Draws the chessboard and pieces."""
     for row in range(BOARD_SIZE):
         for col in range(BOARD_SIZE):
@@ -48,6 +49,9 @@ def draw_board(board):
                 # Determine the correct image key based on piece character
                 image_key = 'w' + piece.upper() if piece.isupper() else 'b' + piece.lower()
                 screen.blit(PIECE_IMAGES[image_key], (col * SQUARE_SIZE, row * SQUARE_SIZE))
+            
+            if selected_pos and selected_pos == (row, col):
+                pygame.draw.rect(screen, (255, 255, 0), (col * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE), 3) # Yellow highlight
 
 def is_path_clear(board, start_pos, end_pos):
     start_row, start_col = start_pos
@@ -89,18 +93,22 @@ def is_valid_move(board, start_pos, end_pos, current_player, check_for_check=Tru
 
     # Basic checks
     if start_pos == end_pos:
+        print("is_valid_move: start_pos == end_pos")
         return False
     if not (0 <= end_row < BOARD_SIZE and 0 <= end_col < BOARD_SIZE):
+        print("is_valid_move: end_pos out of bounds")
         return False
 
     # Check if the piece belongs to the current player
     if (current_player == 'white' and piece.islower()) or \
        (current_player == 'black' and piece.isupper()):
+        print(f"is_valid_move: piece {piece} does not belong to current player {current_player}")
         return False
 
     # Check if target square contains own piece
     if (current_player == 'white' and target_piece.isupper()) or \
        (current_player == 'black' and target_piece.islower()):
+        print(f"is_valid_move: target square {target_piece} contains own piece for player {current_player}")
         return False
 
     # Pawn moves
@@ -109,53 +117,66 @@ def is_valid_move(board, start_pos, end_pos, current_player, check_for_check=Tru
         if current_player == 'white':
             # Single square move
             if end_col == start_col and end_row == start_row - 1 and target_piece == ' ':
+                print("is_valid_move: White pawn single move valid")
                 return True
             # Two square initial move
             if start_row == 6 and end_col == start_col and end_row == start_row - 2 and target_piece == ' ' and board[start_row - 1][start_col] == ' ':
+                print("is_valid_move: White pawn two square initial move valid")
                 return True
             # Capture
             if abs(end_col - start_col) == 1 and end_row == start_row - 1 and target_piece != ' ' and target_piece.islower():
+                print("is_valid_move: White pawn capture valid")
                 return True
         # Black pawns (moving down, increasing row index)
         else:
             # Single square move
             if end_col == start_col and end_row == start_row + 1 and target_piece == ' ':
+                print("is_valid_move: Black pawn single move valid")
                 return True
             # Two square initial move
             if start_row == 1 and end_col == start_col and end_row == start_row + 2 and target_piece == ' ' and board[start_row + 1][start_col] == ' ':
+                print("is_valid_move: Black pawn two square initial move valid")
                 return True
             # Capture
             if abs(end_col - start_col) == 1 and end_row == start_row + 1 and target_piece != ' ' and target_piece.isupper():
+                print("is_valid_move: Black pawn capture valid")
                 return True
+        print("is_valid_move: Pawn move invalid by pawn rules")
         return False # If none of the above pawn moves are valid
 
     # Rook moves
     elif piece.lower() == 'r':
         if (start_row == end_row or start_col == end_col) and is_path_clear(board, start_pos, end_pos):
+            print("is_valid_move: Rook move valid")
             return True
     # Knight moves
     elif piece.lower() == 'n':
         dr = abs(start_row - end_row)
         dc = abs(start_col - end_col)
         if (dr == 1 and dc == 2) or (dr == 2 and dc == 1):
+            print("is_valid_move: Knight move valid")
             return True
     # Bishop moves
     elif piece.lower() == 'b':
         if abs(start_row - end_row) == abs(start_col - end_col) and is_path_clear(board, start_pos, end_pos):
+            print("is_valid_move: Bishop move valid")
             return True
     # Queen moves
     elif piece.lower() == 'q':
         if ((start_row == end_row or start_col == end_col) or \
             (abs(start_row - end_row) == abs(start_col - end_col))) and \
            is_path_clear(board, start_pos, end_pos):
+            print("is_valid_move: Queen move valid")
             return True
     # King moves
     elif piece.lower() == 'k':
         dr = abs(start_row - end_row)
         dc = abs(start_col - end_col)
         if dr <= 1 and dc <= 1:
+            print("is_valid_move: King move valid")
             return True
 
+    print("is_valid_move: No specific piece rule matched")
     return False
 
 def find_king(board, player):
@@ -244,6 +265,7 @@ def main():
                 else:
                     # Try to move the selected piece
                     if is_valid_move(board, selected_pos, (clicked_row, clicked_col), current_player, check_for_check=True):
+                        print(f"Executing move from {selected_pos} to {(clicked_row, clicked_col)}")
                         original_target_piece = board[clicked_row][clicked_col]
                         board[clicked_row][clicked_col] = selected_piece
                         board[selected_pos[0]][selected_pos[1]] = ' '
@@ -258,8 +280,21 @@ def main():
                             selected_pos = None
                             current_player = 'black' # Switch turns
                     else:
-                        selected_piece = None # Deselect if invalid move
-                        selected_pos = None
+                        # If the move is invalid, check if the user clicked on the same piece to deselect it
+                        # or on another one of their own pieces to select it.
+                        if (clicked_row, clicked_col) == selected_pos:
+                            selected_piece = None # Deselect the piece
+                            selected_pos = None
+                        else:
+                            piece_at_clicked_pos = board[clicked_row][clicked_col]
+                            if piece_at_clicked_pos != ' ' and \
+                               ((current_player == 'white' and piece_at_clicked_pos.isupper()) or \
+                                (current_player == 'black' and piece_at_clicked_pos.islower())):
+                                # Select a new piece of the current player
+                                selected_piece = piece_at_clicked_pos
+                                selected_pos = (clicked_row, clicked_col)
+                            # If it's an invalid move to an empty square or opponent's piece, keep the current selection
+                            # so the user can try another destination.
 
         if current_player == 'black' and running: # Computer's turn
             valid_moves = get_all_valid_moves(board, 'black')
@@ -277,4 +312,11 @@ def main():
                     display_message("Stalemate!")
                 running = False
 
-        
+        draw_board(board, selected_pos)
+        pygame.display.flip()
+
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    main()
